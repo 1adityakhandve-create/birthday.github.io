@@ -685,13 +685,32 @@
     </div>
 
     <!-- HERO SECTION -->
-    <section id="hero-page" class="page active">
-        <div id="particle-container"
-            style="position: absolute; width: 100%; height: 100%; top:0; left:0; pointer-events: none;"></div>
-        <h3 class="hero-title"><i>वाढदिवसाच्या हार्दिक शुभेच्छा , दीदी </i></h3>
-        <p class="hero-sub">A Cinematic Journey Created Just For You</p>
-        <button class="btn-neon" onclick="transitionTo('message-slider-page')">Open Your Gift</button>
-    </section>
+<section id="hero-page" class="page active" style="padding: 0;">
+    <div class="stage" id="hero-stage">
+        <div class="curtain-panel curtain-left"></div>
+        <div class="curtain-panel curtain-right"></div>
+
+        <!-- Button sits on top of curtain seam -->
+        <div id="hero-open-btn" style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 30;
+        ">
+            <button class="btn-neon" onclick="openHero()">Open Your Gift 🎁</button>
+        </div>
+
+        <!-- Hidden until curtains open -->
+        <div class="secret-content" id="hero-content" style="opacity: 0; transition: opacity 1s ease;">
+            <div id="particle-container"
+                style="position: absolute; width: 100%; height: 100%; top:0; left:0; pointer-events: none;"></div>
+            <h3 class="hero-title"><i>वाढदिवसाच्या हार्दिक शुभेच्छा , दीदी </i></h3>
+            <p class="hero-sub">A Cinematic Journey Created Just For You</p>
+            <button class="btn-neon" onclick="transitionTo('message-slider-page')">Let's Begin ✨</button>
+        </div>
+    </div>
+</section>
 
     <!-- MESSAGE SLIDER SECTION -->
     <section id="message-slider-page" class="page">
@@ -910,11 +929,21 @@
     </audio>
 
     <script>
-        // Add this inside your <script>, near the top
-        document.addEventListener('click', function startHero() {
-            playLoop('hero-section');
-            document.removeEventListener('click', startHero); // fires only once
-        }, { once: true });
+        function openHero() {
+    // hide the open button
+    document.getElementById('hero-open-btn').style.display = 'none';
+
+    // start audio
+    playLoop('hero-section');
+
+    // open curtains
+    document.getElementById('hero-stage').classList.add('open');
+
+    // reveal happy birthday message after curtains open
+    setTimeout(() => {
+        document.getElementById('hero-content').style.opacity = '1';
+    }, 2500);
+}
         let currentMusic = null;
 
         function playLoop(id) {

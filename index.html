@@ -1002,334 +1002,274 @@
         </div>
     </section>
 
-    <audio id="hero-section" preload="metadata">
-        <source src="audio/Entry.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="slider-section" preload="metadata">
-        <source src="audio/Getting-Ready.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="cake-section" preload="metadata">
-        <source src="audio/Cake-Cutting.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="memory-1" preload="metadata">
-        <source src="audio/Old-Photos.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="memory-2" preload="metadata">
-        <source src="audio/New-Photos.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="personal-message-section" preload="metadata">
-        <source src="audio/Note.mp3" type="audio/mpeg">
-    </audio>
-    <audio id="wish-section" preload="metadata">
-        <source src="audio/Wish.mp3" type="audio/mpeg">
-    </audio>
+    <script>// ============ AUDIO ENGINE (Audio Element approach — no CORS issues) ============
+let currentAudio = null;
 
-    <script>
-        // ============ AUDIO ENGINE ============
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const audioBuffers = {};
-        let currentSource = null;
-        let currentGain = null;
-        let audioUnlocked = false;
+const audioFiles = {
+    'hero-section': 'https://res.cloudinary.com/djqyzej12/video/upload/v1780597071/Entry_y70ndi.mp3',
+    'slider-section': 'https://res.cloudinary.com/djqyzej12/video/upload/v1780597069/Getting-Ready_ihdee4.mp3',
+    'cake-section': 'https://res.cloudinary.com/djqyzej12/video/upload/v1780597070/Cake-Cutting_z19dcw.mp3',
+    'memory-1': 'https://res.cloudinary.com/djqyzej12/video/upload/v1780597069/Old-Photos_h6iy9f.mp3',
+    'memory-2': 'https://res.cloudinary.com/djqyzej12/video/upload/v1780597072/New-Photos_j5hqmb.mp3',
+    'personal-message-section': 'https://res.cloudinary.com/djqyzej12/video/upload/v1780597074/Note_cn7ex7.mp3',
+    'wish-section': 'https://res.cloudinary.com/djqyzej12/video/upload/v1780597069/Wish_r0kiev.mp3'
+};
 
-        const audioFiles = {
-            'hero-section': 'audio/Entry.mp3',
-            'slider-section': 'audio/Getting-Ready.mp3',
-            'cake-section': 'audio/Cake-Cutting.mp3',
-            'memory-1': 'audio/Old-Photos.mp3',
-            'memory-2': 'audio/New-Photos.mp3',
-            'personal-message-section': 'audio/Note.mp3',
-            'wish-section': 'audio/Wish.mp3'
-        };
+// Pre-create and preload all audio elements immediately
+const audioElements = {};
+Object.entries(audioFiles).forEach(([key, src]) => {
+    const audio = new Audio();
+    audio.src = src;
+    audio.loop = true;
+    audio.volume = 0;
+    audio.preload = 'auto';
+    audio.load();
+    audioElements[key] = audio;
+    console.log(`🔄 Preloading: ${key}`);
+    audio.addEventListener('canplaythrough', () => console.log(`✅ Ready: ${key}`), { once: true });
+});
 
-        async function preloadAllAudio() {
-            const promises = Object.entries(audioFiles).map(async ([key, src]) => {
-                try {
-                    const response = await fetch(src);
-                    const arrayBuffer = await response.arrayBuffer();
-                    audioBuffers[key] = await audioContext.decodeAudioData(arrayBuffer);
-                    console.log(`✅ Ready: ${key}`);
-                } catch (e) {
-                    console.error(`❌ Failed to load: ${key}`, e);
-                }
-            });
-            await Promise.all(promises);
+function playLoop(id) {
+    console.log(`🎵 playLoop: ${id}`);
+
+    // Fade out current
+    if (currentAudio) {
+        const old = currentAudio;
+        fadeOut(old, () => { old.pause(); old.currentTime = 0; });
+    }
+
+    const audio = audioElements[id];
+    if (!audio) return;
+
+    audio.currentTime = 0;
+    audio.volume = 0;
+    audio.play().then(() => {
+        fadeIn(audio);
+        console.log(`▶️ Playing: ${id}`);
+    }).catch(e => console.error(`❌ Play failed: ${id}`, e));
+
+    currentAudio = audio;
+}
+
+function fadeIn(audio) {
+    let vol = 0;
+    const interval = setInterval(() => {
+        vol = Math.min(1, vol + 0.05);
+        audio.volume = vol;
+        if (vol >= 1) clearInterval(interval);
+    }, 50);
+}
+
+function fadeOut(audio, callback) {
+    let vol = audio.volume;
+    const interval = setInterval(() => {
+        vol = Math.max(0, vol - 0.05);
+        audio.volume = vol;
+        if (vol <= 0) {
+            clearInterval(interval);
+            if (callback) callback();
         }
+    }, 50);
+}
 
-        function unlockAndPreload() {
-            if (audioUnlocked) return;
-            audioUnlocked = true;
-            audioContext.resume().then(() => {
-                console.log('AudioContext resumed');
-            });
-            preloadAllAudio();
+// ============ HERO ============
+function openHero() {
+    playLoop('hero-section');
+    document.getElementById('hero-open-btn').style.display = 'none';
+    document.getElementById('hero-stage').classList.add('open');
+    setTimeout(() => {
+        document.getElementById('hero-content').style.opacity = '1';
+    }, 2500);
+}
+
+// ============ PAGE TRANSITIONS ============
+function transitionTo(pageId) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById(pageId).classList.add('active');
+
+    if (pageId === 'message-slider-page') playLoop('slider-section');
+    if (pageId === 'cake-page') playLoop('cake-section');
+    if (pageId === 'gallery-page-1') playLoop('memory-1');
+    if (pageId === 'gallery-page') playLoop('memory-2');
+    if (pageId === 'personal-message') playLoop('personal-message-section');
+    if (pageId === 'WISH') playLoop('wish-section');
+
+    if (pageId === 'personal-message') {
+        setTimeout(() => {
+            document.getElementById('stage').classList.add('open');
+            startSparkles('message-card');
+        }, 1000);
+    }
+    if (pageId === 'gallery-page') startGalleryEffects();
+}
+
+// ============ HEARTS ============
+function createHeart(containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    const heart = document.createElement('div');
+    heart.style.position = 'absolute';
+    heart.style.left = Math.random() * 100 + 'vw';
+    heart.style.bottom = '-10vh';
+    heart.style.color = 'var(--accent)';
+    heart.innerHTML = '❤️';
+    heart.style.fontSize = (Math.random() * 20 + 10) + 'px';
+    heart.style.animation = `floatHeart ${Math.random() * 3 + 3}s linear forwards`;
+    container.appendChild(heart);
+    setTimeout(() => heart.remove(), 6000);
+}
+
+setInterval(() => createHeart('particle-container'), 300);
+setInterval(() => createHeart('slider-particles'), 400);
+
+// ============ SLIDER ============
+function nextStep(step) {
+    document.querySelectorAll('.step-content').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.dot').forEach(d => d.classList.remove('active'));
+    document.getElementById(`step-${step}`).classList.add('active');
+    document.getElementById(`dot-${step}`).classList.add('active');
+}
+
+function finishSlider() { transitionTo('celebration-page'); }
+
+// ============ CELEBRATION ============
+let celebStep = 1;
+
+function celebFlow() {
+    const btn = document.getElementById('celeb-master-btn');
+    const hint = document.getElementById('celeb-hint');
+    const page = document.getElementById('celebration-page');
+    const lights = document.getElementById('fairy-lights-container');
+
+    if (celebStep === 1) {
+        if (document.querySelectorAll('.bulb-teardrop').length === 0) initFairyLights();
+        page.classList.add('bright');
+        lights.style.opacity = '1';
+        lights.classList.add('lit');
+        hint.innerText = "Let the colors fly!";
+        btn.innerText = "🎈 Fly Balloons";
+        celebStep = 2;
+    } else if (celebStep === 2) {
+        spawnBalloons(document.body);
+        hint.innerText = "Almost there...";
+        btn.innerText = "✨ Let's Cut The Cake";
+        celebStep = 3;
+    } else {
+        transitionTo('cake-page');
+        celebStep = 4;
+    }
+}
+
+// ============ BALLOONS ============
+function spawnBalloons(targetContainer) {
+    const colorGradients = [
+        ['#ff2d55', '#800020'], ['#74b9ff', '#0984e3'],
+        ['#55efc4', '#00b894'], ['#ffeaa7', '#fdcb6e'],
+        ['#a29bfe', '#6c5ce7'], ['#ff9ff3', '#f368e0']
+    ];
+    const interval = setInterval(() => {
+        const b = document.createElement('div');
+        const shine = document.createElement('div');
+        b.classList.add('balloon');
+        shine.classList.add('balloon-shine');
+        const gradient = colorGradients[Math.floor(Math.random() * colorGradients.length)];
+        b.style.left = Math.random() * 95 + 'vw';
+        b.style.background = `radial-gradient(circle at 70% 30%, ${gradient[0]}, ${gradient[1]})`;
+        b.style.boxShadow = `inset -10px -10px 20px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.2)`;
+        b.appendChild(shine);
+        targetContainer.appendChild(b);
+        setTimeout(() => b.remove(), 8000);
+    }, 400);
+    setTimeout(() => clearInterval(interval), 6000);
+}
+
+// ============ GALLERY ============
+function startGalleryEffects() {
+    const container = document.getElementById('gallery-bg-elements');
+    setInterval(() => {
+        if (document.getElementById('gallery-page').classList.contains('active')) spawnBalloons(container);
+    }, 8000);
+    setInterval(() => {
+        if (document.getElementById('gallery-page').classList.contains('active')) {
+            const s = document.createElement('div');
+            s.classList.add('gallery-sparkle');
+            s.style.width = s.style.height = (Math.random() * 6 + 2) + 'px';
+            s.style.top = Math.random() * 100 + '%';
+            s.style.left = Math.random() * 100 + '%';
+            container.appendChild(s);
+            setTimeout(() => s.remove(), 2000);
         }
+    }, 200);
+}
 
-        function playLoop(id) {
-            const tryPlay = () => {
-                if (!audioBuffers[id]) {
-                    setTimeout(tryPlay, 100);
-                    return;
-                }
-                const oldSource = currentSource;
-                const oldGain = currentGain;
-                if (oldGain) {
-                    oldGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.3);
-                    setTimeout(() => {
-                        try { oldSource.stop(); } catch (e) { }
-                    }, 1000);
-                }
-                const source = audioContext.createBufferSource();
-                const gain = audioContext.createGain();
-                source.buffer = audioBuffers[id];
-                source.loop = true;
-                gain.gain.setValueAtTime(0, audioContext.currentTime);
-                gain.gain.setTargetAtTime(1, audioContext.currentTime, 0.5);
-                source.connect(gain);
-                gain.connect(audioContext.destination);
-                source.start();
-                currentSource = source;
-                currentGain = gain;
-            };
-            audioContext.resume().then(tryPlay);
-        }
+function startSparkles(targetId) {
+    const card = document.getElementById(targetId);
+    setInterval(() => {
+        const s = document.createElement('div');
+        s.classList.add('sparkle-particle');
+        s.style.width = s.style.height = (Math.random() * 4 + 2) + 'px';
+        s.style.top = Math.random() * 100 + '%';
+        s.style.left = Math.random() * 100 + '%';
+        card.appendChild(s);
+        setTimeout(() => s.remove(), 1000);
+    }, 50);
+}
 
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                audioContext.resume();
-            }
-        });
+// ============ FAIRY LIGHTS ============
+function initFairyLights() {
+    const container = document.getElementById('fairy-lights-container');
+    const path = document.getElementById('wire-path');
+    const pathLength = path.getTotalLength();
+    const bulbCount = 25;
+    for (let i = 0; i <= bulbCount; i++) {
+        const distance = (i / bulbCount) * pathLength;
+        const point = path.getPointAtLength(distance);
+        const bulb = document.createElement('div');
+        bulb.classList.add('bulb-teardrop');
+        bulb.style.left = `${(point.x / 1000) * 100}%`;
+        bulb.style.top = `${point.y}px`;
+        bulb.style.setProperty('--d', `${0.5 + Math.random() * 2}s`);
+        container.appendChild(bulb);
+    }
+}
 
-        function openHero() {
-            unlockAndPreload();
-            document.getElementById('hero-open-btn').style.display = 'none';
-            document.getElementById('hero-stage').classList.add('open');
-            setTimeout(() => {
-                document.getElementById('hero-content').style.opacity = '1';
-                playLoop('hero-section');
-            }, 2500);
-        }
+// ============ CAKE ============
+function blowCandles() {
+    document.getElementById('flame').classList.add('flame-off');
+}
 
-        function transitionTo(pageId) {
-            document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-            document.getElementById(pageId).classList.add('active');
+function cutCake() {
+    document.getElementById('knife').classList.add('knife-cut');
+    setTimeout(() => {
+        document.querySelector('.top').style.transform = 'translateX(-65%)';
+        document.querySelector('.middle').style.transform = 'translateX(-35%)';
+        document.querySelector('.bottom').style.transform = 'translateX(-55%)';
+    }, 1800);
+    setTimeout(() => transitionTo('gallery-page-1'), 4500);
+}
 
-            if (pageId === 'message-slider-page') playLoop('slider-section');
-            if (pageId === 'cake-page') playLoop('cake-section');
-            if (pageId === 'gallery-page-1') playLoop('memory-1');
-            if (pageId === 'gallery-page') playLoop('memory-2');
-            if (pageId === 'personal-message') playLoop('personal-message-section');
-            if (pageId === 'WISH') playLoop('wish-section');
+// ============ INIT ============
+document.addEventListener('DOMContentLoaded', () => { initFairyLights(); });
 
-            if (pageId === 'personal-message') {
-                setTimeout(() => {
-                    document.getElementById('stage').classList.add('open');
-                    startSparkles('message-card');
-                }, 1000);
-            }
-            if (pageId === 'gallery-page') startGalleryEffects();
-        }
-
-        function createHeart(containerId) {
-            const container = document.getElementById(containerId);
-            if (!container) return;
-            const heart = document.createElement('div');
-            heart.style.position = 'absolute';
-            heart.style.left = Math.random() * 100 + 'vw';
-            heart.style.bottom = '-10vh';
-            heart.style.color = 'var(--accent)';
-            heart.innerHTML = '❤️';
-            heart.style.fontSize = (Math.random() * 20 + 10) + 'px';
-            heart.style.animation = `floatHeart ${Math.random() * 3 + 3}s linear forwards`;
-            container.appendChild(heart);
-            setTimeout(() => heart.remove(), 6000);
-        }
-
-        setInterval(() => createHeart('particle-container'), 300);
-        setInterval(() => createHeart('slider-particles'), 400);
-
-        function nextStep(step) {
-            document.querySelectorAll('.step-content').forEach(s => s.classList.remove('active'));
-            document.querySelectorAll('.dot').forEach(d => d.classList.remove('active'));
-            document.getElementById(`step-${step}`).classList.add('active');
-            document.getElementById(`dot-${step}`).classList.add('active');
-        }
-
-        function finishSlider() {
-            transitionTo('celebration-page');
-        }
-
-        let celebStep = 1;
-
-        function celebFlow() {
-            const btn = document.getElementById('celeb-master-btn');
-            const hint = document.getElementById('celeb-hint');
-            const page = document.getElementById('celebration-page');
-            const lights = document.getElementById('fairy-lights-container');
-
-            if (celebStep === 1) {
-                if (document.querySelectorAll('.bulb-teardrop').length === 0) {
-                    initFairyLights();
-                }
-                page.classList.add('bright');
-                lights.style.opacity = '1';
-                lights.classList.add('lit');
-                hint.innerText = "Let the colors fly!";
-                btn.innerText = "🎈 Fly Balloons";
-                celebStep = 2;
-            } else if (celebStep === 2) {
-                spawnBalloons(document.body);
-                hint.innerText = "Almost there...";
-                btn.innerText = "✨ Let's Cut The Cake";
-                celebStep = 3;
-            } else {
-                transitionTo('cake-page');
-                celebStep = 4;
-            }
-        }
-
-        function spawnBalloons(targetContainer) {
-            const colorGradients = [
-                ['#ff2d55', '#800020'], ['#74b9ff', '#0984e3'],
-                ['#55efc4', '#00b894'], ['#ffeaa7', '#fdcb6e'],
-                ['#a29bfe', '#6c5ce7'], ['#ff9ff3', '#f368e0']
-            ];
-            const interval = setInterval(() => {
-                const b = document.createElement('div');
-                const shine = document.createElement('div');
-                b.classList.add('balloon');
-                shine.classList.add('balloon-shine');
-                const gradient = colorGradients[Math.floor(Math.random() * colorGradients.length)];
-                b.style.left = Math.random() * 95 + 'vw';
-                b.style.background = `radial-gradient(circle at 70% 30%, ${gradient[0]}, ${gradient[1]})`;
-                b.style.boxShadow = `inset -10px -10px 20px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.2)`;
-                b.appendChild(shine);
-                targetContainer.appendChild(b);
-                setTimeout(() => b.remove(), 8000);
-            }, 400);
-            setTimeout(() => clearInterval(interval), 6000);
-        }
-
-        function startGalleryEffects() {
-            const container = document.getElementById('gallery-bg-elements');
-            setInterval(() => {
-                if (document.getElementById('gallery-page').classList.contains('active')) {
-                    spawnBalloons(container);
-                }
-            }, 8000);
-            setInterval(() => {
-                if (document.getElementById('gallery-page').classList.contains('active')) {
-                    const s = document.createElement('div');
-                    s.classList.add('gallery-sparkle');
-                    s.style.width = s.style.height = (Math.random() * 6 + 2) + 'px';
-                    s.style.top = Math.random() * 100 + '%';
-                    s.style.left = Math.random() * 100 + '%';
-                    container.appendChild(s);
-                    setTimeout(() => s.remove(), 2000);
-                }
-            }, 200);
-        }
-
-        function startSparkles(targetId) {
-            const card = document.getElementById(targetId);
-            setInterval(() => {
-                const s = document.createElement('div');
-                s.classList.add('sparkle-particle');
-                s.style.width = s.style.height = (Math.random() * 4 + 2) + 'px';
-                s.style.top = Math.random() * 100 + '%';
-                s.style.left = Math.random() * 100 + '%';
-                card.appendChild(s);
-                setTimeout(() => s.remove(), 1000);
-            }, 50);
-        }
-
-        function initFairyLights() {
-            const container = document.getElementById('fairy-lights-container');
-            const path = document.getElementById('wire-path');
-            const pathLength = path.getTotalLength();
-            const bulbCount = 25;
-            for (let i = 0; i <= bulbCount; i++) {
-                const distance = (i / bulbCount) * pathLength;
-                const point = path.getPointAtLength(distance);
-                const bulb = document.createElement('div');
-                bulb.classList.add('bulb-teardrop');
-                bulb.style.left = `${(point.x / 1000) * 100}%`;
-                bulb.style.top = `${point.y}px`;
-                bulb.style.setProperty('--d', `${0.5 + Math.random() * 2}s`);
-                container.appendChild(bulb);
-            }
-        }
-
-        function blowCandles() {
-            const flame = document.getElementById('flame');
-            flame.classList.add('flame-off');
-        }
-
-        function cutCake() {
-            const knife = document.getElementById('knife');
-            knife.classList.add('knife-cut');
-            setTimeout(() => {
-                document.querySelector('.top').style.transform = 'translateX(-65%)';
-                document.querySelector('.middle').style.transform = 'translateX(-35%)';
-                document.querySelector('.bottom').style.transform = 'translateX(-55%)';
-            }, 1800);
-            setTimeout(() => {
-                transitionTo('gallery-page-1');
-            }, 4500);
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            initFairyLights();
-        });
-
-        document.querySelectorAll('audio').forEach(audio => {
-            audio.load();
-        });
-
-        // PRELOAD IMAGES
-        const images = [
-            "https://i.ibb.co/cSwS95Wg/newimg01.png",
-            "https://i.ibb.co/mFJX6NzW/newimg02.png",
-            "https://i.ibb.co/35WX0kS2/newimg03.png",
-            "https://i.ibb.co/XfnZxK1p/newimg04.png",
-            "https://i.ibb.co/MkP0W1y0/newimg05.png",
-            "https://i.ibb.co/7tsmLfSH/newimg06.png",
-            "https://i.ibb.co/mCB4mdWb/newimg07.png",
-            "https://i.ibb.co/S2Wz0JK/newimg08.png",
-            "https://i.ibb.co/Z6yNZ0qP/newimg09.png",
-            "https://i.ibb.co/CKqBMq0C/newimg10.jpg",
-            "https://i.ibb.co/dwhLwXY6/newimg11.jpg",
-            "https://i.ibb.co/hJ7hQ5CT/newimg12.png",
-            "https://i.ibb.co/67Vd5pTs/01.jpg",
-            "https://i.ibb.co/1YvgK69D/02.jpg",
-            "https://i.ibb.co/pj3qKM3j/03.jpg",
-            "https://i.ibb.co/ycnk6W8V/04.jpg",
-            "https://i.ibb.co/5gbPDK1k/05.jpg",
-            "https://i.ibb.co/wrxhfWyz/06.jpg",
-            "https://i.ibb.co/9m6TRDrs/07.jpg",
-            "https://i.ibb.co/YTJyFMmq/08.jpg",
-            "https://i.ibb.co/wF6ydRZm/09.jpg",
-            "https://i.ibb.co/35tYC5vn/10.jpg",
-            "https://i.ibb.co/66V2kWh/11.jpg",
-            "https://i.ibb.co/C5173KxF/12.jpg",
-            "https://i.ibb.co/LzXdps6R/13.jpg",
-            "https://i.ibb.co/P08MbML/14.jpg",
-            "https://i.ibb.co/MygZZwMK/15.jpg",
-            "https://i.ibb.co/xSSq5YJX/16.jpg",
-            "https://i.ibb.co/fVPWyTV8/17.jpg",
-            "https://i.ibb.co/GQgYmKHg/18.jpg",
-            "https://i.ibb.co/W4b9fYDK/lastimg-2.jpg",
-            "https://i.ibb.co/Sw1jGvX9/lastimg-1.png",
-            "image/oldimg/111.jpeg",
-            "image/oldimg/112.jpg",
-
-        ];
-
-        images.forEach(src => {
-            const img = new Image();
-            img.src = src;
-        });
-
-    </script>
+// ============ IMAGE PRELOAD ============
+const images = [
+    "https://i.ibb.co/cSwS95Wg/newimg01.png","https://i.ibb.co/mFJX6NzW/newimg02.png",
+    "https://i.ibb.co/35WX0kS2/newimg03.png","https://i.ibb.co/XfnZxK1p/newimg04.png",
+    "https://i.ibb.co/MkP0W1y0/newimg05.png","https://i.ibb.co/7tsmLfSH/newimg06.png",
+    "https://i.ibb.co/mCB4mdWb/newimg07.png","https://i.ibb.co/S2Wz0JK/newimg08.png",
+    "https://i.ibb.co/Z6yNZ0qP/newimg09.png","https://i.ibb.co/CKqBMq0C/newimg10.jpg",
+    "https://i.ibb.co/dwhLwXY6/newimg11.jpg","https://i.ibb.co/hJ7hQ5CT/newimg12.png",
+    "https://i.ibb.co/67Vd5pTs/01.jpg","https://i.ibb.co/1YvgK69D/02.jpg",
+    "https://i.ibb.co/pj3qKM3j/03.jpg","https://i.ibb.co/ycnk6W8V/04.jpg",
+    "https://i.ibb.co/5gbPDK1k/05.jpg","https://i.ibb.co/wrxhfWyz/06.jpg",
+    "https://i.ibb.co/9m6TRDrs/07.jpg","https://i.ibb.co/YTJyFMmq/08.jpg",
+    "https://i.ibb.co/wF6ydRZm/09.jpg","https://i.ibb.co/35tYC5vn/10.jpg",
+    "https://i.ibb.co/66V2kWh/11.jpg","https://i.ibb.co/C5173KxF/12.jpg",
+    "https://i.ibb.co/LzXdps6R/13.jpg","https://i.ibb.co/P08MbML/14.jpg",
+    "https://i.ibb.co/MygZZwMK/15.jpg","https://i.ibb.co/xSSq5YJX/16.jpg",
+    "https://i.ibb.co/fVPWyTV8/17.jpg","https://i.ibb.co/GQgYmKHg/18.jpg",
+    "https://i.ibb.co/W4b9fYDK/lastimg-2.jpg","https://i.ibb.co/Sw1jGvX9/lastimg-1.png"
+];
+images.forEach(src => { const img = new Image(); img.src = src; });    </script>
 </body>
 </html>

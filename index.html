@@ -114,10 +114,6 @@
             }
         }
 
-        body.loading * {
-            pointer-events: none !important;
-        }
-
         /* --- Hero Page --- */
         #hero-page {
             background: radial-gradient(circle at center, #1a0a0c 0%, #050505 100%);
@@ -678,22 +674,6 @@
 </head>
 
 <body>
-    <div id="loading-screen" style="position:fixed;
-top:0; left:0;
-width:100%;
-height:100%;
-background:#000;
-color:#0f0;
-z-index:999999;
-display:flex;
-flex-direction:column;
-justify-content:center;
-align-items:center;
-font-family:monospace;
-">
-        <div id="loading-text">Initializing...</div>
-        <div id="loading-percent" style="margin-top:10px;">0%</div>
-    </div>
 
     <!-- FAIRY LIGHTS — fixed to body, persists across all pages -->
     <div class="fairy-lights-container" id="fairy-lights-container">
@@ -999,17 +979,8 @@ font-family:monospace;
                         style="font-family: 'Dancing Script'; font-size: clamp(2rem, 5vw, 3.5rem); color: var(--accent); margin-bottom: 20px;">
                         My Dearest Didi ,</h2>
                     <p style="font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.8; color: rgba(255,255,255,0.8);">
-                        Today isn’t just about marking another year — it’s about you and the kind of person you are.
-                        <br><br>
-                        You have this way of making things feel lighter, calmer, and more certain without even trying. I
-                        don’t think I say this enough, but having you around has always meant more than I can easily put
-                        into words. There’s a quiet strength in you, and a warmth that stays with people long after
-                        moments pass.
-                        <br><br>
-                        I’m genuinely grateful for you — not just today, but every day.
-                        <br><br>
-                        I hope this year gives you the same kind of steadiness, happiness, and comfort that you bring
-                        into others’ lives, including mine.
+                        Today isn’t just about marking another year — it’s about you and the kind of person you are. You have this way of making things feel lighter, calmer, and more certain without even trying. I don’t think I say this enough, but having you around has always meant more than I can easily put into words. There’s a quiet strength in you, and a warmth that stays with people long after moments pass.
+<br><br>I’m genuinely grateful for you — not just today, but every day. I hope this year gives you the same kind of steadiness, happiness, and comfort that you bring into others’ lives, including mine.
 
                     </p>
                     <button class="btn-neon" style="margin-top: 40px; animation: none;"
@@ -1054,42 +1025,6 @@ font-family:monospace;
     </audio>
 
     <script>
-        document.body.classList.add('loading');
-        async function loadEverything() {
-            const text = document.getElementById('loading-text');
-            const percent = document.getElementById('loading-percent');
-
-            let progress = 0;
-
-            function update(p) {
-                progress = Math.min(100, Math.floor(p * 100));
-                percent.textContent = progress + "%";
-            }
-
-            text.textContent = "Loading Images...";
-            await preloadImagesWithDecode(images, (p) => update(p * 0.5));
-
-            text.textContent = "Fetching Audio...";
-            await fetchAudioFiles((p) => update(50 + p * 0.3));
-
-            // FAKE DRAMA DELAY
-            text.textContent = "Finalizing Experience...";
-            await new Promise(r => setTimeout(r, 1500));
-
-            text.textContent = "Almost There...";
-            await new Promise(r => setTimeout(r, 1200));
-
-            percent.textContent = "100%";
-
-            await new Promise(r => setTimeout(r, 800));
-
-            document.getElementById('loading-screen').style.opacity = "0";
-
-            setTimeout(() => {
-                document.getElementById('loading-screen').remove();
-                document.body.classList.remove('loading');
-            }, 800);
-        }
         // ============ AUDIO ENGINE ============
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
         const audioBuffers = {};
@@ -1107,40 +1042,18 @@ font-family:monospace;
             'wish-section': 'audio/Wish.mp3'
         };
 
-        async function fetchAudioFiles(onProgress) {
-            let loaded = 0;
-            const entries = Object.entries(audioFiles);
-
-            await Promise.all(entries.map(async ([key, src]) => {
+        async function preloadAllAudio() {
+            const promises = Object.entries(audioFiles).map(async ([key, src]) => {
                 try {
-                    const res = await fetch(src);
-                    audioBuffers[key] = await res.arrayBuffer(); // store RAW
-                } catch (e) { }
-
-                loaded++;
-                onProgress(loaded / entries.length);
-            }));
-        }
-
-        async function decodeAllAudio() {
-            await audioContext.resume();
-
-            const entries = Object.entries(audioBuffers);
-
-            for (let [key, buffer] of entries) {
-                if (buffer instanceof ArrayBuffer) {
-                    await new Promise((resolve) => {
-                        audioContext.decodeAudioData(
-                            buffer,
-                            (decoded) => {
-                                audioBuffers[key] = decoded;
-                                resolve();
-                            },
-                            () => resolve()
-                        );
-                    });
+                    const response = await fetch(src);
+                    const arrayBuffer = await response.arrayBuffer();
+                    audioBuffers[key] = await audioContext.decodeAudioData(arrayBuffer);
+                    console.log(`✅ Ready: ${key}`);
+                } catch (e) {
+                    console.error(`❌ Failed to load: ${key}`, e);
                 }
-            }
+            });
+            await Promise.all(promises);
         }
 
         function unlockAndPreload() {
@@ -1148,46 +1061,37 @@ font-family:monospace;
             audioUnlocked = true;
             audioContext.resume().then(() => {
                 console.log('AudioContext resumed');
-                preloadAllAudio(); // start decode AFTER context is active
             });
+            preloadAllAudio();
         }
-        function playLoop(id) {
-            // Fade out + stop current track
-            if (currentGain && currentSource) {
-                const oldGain = currentGain;
-                const oldSource = currentSource;
-                oldGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.4);
-                setTimeout(() => { try { oldSource.stop(); } catch (e) { } }, 1500);
-            }
-            currentSource = null;
-            currentGain = null;
 
-            const tryPlay = (attempts) => {
-                if (attempts > 50) { console.error('Audio buffer never loaded:', id); return; }
+        function playLoop(id) {
+            const tryPlay = () => {
                 if (!audioBuffers[id]) {
-                    setTimeout(() => tryPlay(attempts + 1), 200);
+                    setTimeout(tryPlay, 100);
                     return;
                 }
-                if (audioContext.state === 'suspended') {
-                    audioContext.resume().then(() => tryPlay(attempts));
-                    return;
+                const oldSource = currentSource;
+                const oldGain = currentGain;
+                if (oldGain) {
+                    oldGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.3);
+                    setTimeout(() => {
+                        try { oldSource.stop(); } catch (e) { }
+                    }, 1000);
                 }
                 const source = audioContext.createBufferSource();
                 const gain = audioContext.createGain();
                 source.buffer = audioBuffers[id];
                 source.loop = true;
                 gain.gain.setValueAtTime(0, audioContext.currentTime);
-                gain.gain.linearRampToValueAtTime(1, audioContext.currentTime + 1.5);
+                gain.gain.setTargetAtTime(1, audioContext.currentTime, 0.5);
                 source.connect(gain);
                 gain.connect(audioContext.destination);
-                source.start(0);
-                const dbg = document.getElementById('audio-debug');
-                if (dbg) dbg.textContent = '▶ ' + id;
+                source.start();
                 currentSource = source;
                 currentGain = gain;
-                console.log('▶️ Playing:', id);
             };
-            tryPlay(0);
+            audioContext.resume().then(tryPlay);
         }
 
         document.addEventListener('visibilitychange', () => {
@@ -1196,12 +1100,10 @@ font-family:monospace;
             }
         });
 
-        async function openHero() {
-            await decodeAllAudio(); // 🔥 decode ONLY after click
-
+        function openHero() {
+            unlockAndPreload();
             document.getElementById('hero-open-btn').style.display = 'none';
             document.getElementById('hero-stage').classList.add('open');
-
             setTimeout(() => {
                 document.getElementById('hero-content').style.opacity = '1';
                 playLoop('hero-section');
@@ -1378,39 +1280,11 @@ font-family:monospace;
 
         document.addEventListener('DOMContentLoaded', () => {
             initFairyLights();
-            loadEverything();
         });
 
         document.querySelectorAll('audio').forEach(audio => {
             audio.load();
         });
-
-        function preloadImagesWithDecode(srcs, onProgress) {
-            let loaded = 0;
-
-            return Promise.all(srcs.map(src => {
-                return new Promise((resolve) => {
-                    const img = new Image();
-                    img.src = src;
-
-                    img.onload = async () => {
-                        try {
-                            await img.decode(); // ensures real decode
-                        } catch (e) { }
-
-                        loaded++;
-                        onProgress(loaded / srcs.length);
-                        resolve();
-                    };
-
-                    img.onerror = () => {
-                        loaded++;
-                        onProgress(loaded / srcs.length);
-                        resolve(); // NEVER block
-                    };
-                });
-            }));
-        }
 
         // PRELOAD IMAGES
         const images = [
@@ -1458,5 +1332,4 @@ font-family:monospace;
 
     </script>
 </body>
-
 </html>
